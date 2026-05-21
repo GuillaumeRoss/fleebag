@@ -1,0 +1,6 @@
+# Downloaded bagel binaries (populated at build time)
+pkg/payload/usr/
+
+# PKG build artifacts
+*.pkg
+build/

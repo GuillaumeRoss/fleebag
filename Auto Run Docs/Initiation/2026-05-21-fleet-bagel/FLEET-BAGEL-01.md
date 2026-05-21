@@ -18,7 +18,7 @@ This phase establishes the complete repository layout and delivers the core deli
     - Finding shape: id, probe, severity, title, message, path
   -->
 
-- [ ] Create the repository directory skeleton:
+- [x] Create the repository directory skeleton:
   - `scripts/` — build and utility scripts
   - `pkg/payload/usr/local/bin/` — bagel binary landing (populated at build time, gitignored)
   - `pkg/payload/usr/local/libexec/` — wrapper scan script
@@ -29,6 +29,7 @@ This phase establishes the complete repository layout and delivers the core deli
   - `tests/fixtures/` — anonymized JSON test fixtures
   - `tests/` — test runner scripts
   - Create a `.gitignore` that ignores `pkg/payload/usr/` (downloaded binaries), `*.pkg` build artifacts, and `build/` directory
+  <!-- COMPLETED 2026-05-21: All directories created with .gitkeep files to track in git. .gitignore created ignoring pkg/payload/usr/, *.pkg, and build/. Note: subsequent tasks referencing config.toml should use bagel.yaml per research findings. -->
 
 - [ ] Create the bagel configuration template at `pkg/payload/etc/bagel/config.toml`:
   - Use TOML format matching bagel's actual config schema (confirmed from research task above)
