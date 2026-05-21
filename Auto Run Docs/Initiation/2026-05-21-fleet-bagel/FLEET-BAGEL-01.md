@@ -73,7 +73,7 @@ This phase establishes the complete repository layout and delivers the core deli
   - Does not fail hard if the LaunchAgent load fails (some deployments will rely on login to trigger the load)
   <!-- COMPLETED 2026-05-21: Created pkg/scripts/postinstall (executable, 755). Sets root:wheel ownership and correct permissions on all four installed paths. Note: config file path in the script uses /etc/bagel/bagel.yaml (not config.toml per research findings). Console user detected via scutil (State:/Users/ConsoleUser) with fallback to `who | awk '/console/'`. LaunchAgent bootstrapped via `launchctl bootstrap gui/$UID`; non-zero exit is non-fatal with a clear message that load will occur at next login. -->
 
-- [ ] Create the main PKG build script at `scripts/build-pkg.sh`:
+- [x] Create the main PKG build script at `scripts/build-pkg.sh`:
   - Must be executable and fully self-contained (no user input required)
   - Detects host architecture (`uname -m`) and selects the correct bagel binary asset
   - Fetches the latest release from `https://api.github.com/repos/boostsecurityio/bagel/releases/latest` using the GitHub API (no auth token needed for public releases)
@@ -89,6 +89,7 @@ This phase establishes the complete repository layout and delivers the core deli
     - Output: `build/bagel-<version>.pkg`
   - Prints the path to the built pkg on success
   - Includes a usage/help comment block at the top of the script
+  <!-- COMPLETED 2026-05-21: Created scripts/build-pkg.sh (executable, 755). Detects arch via uname -m (arm64/x86_64). Fetches GitHub API, parses version and download URL with python3 (no jq dependency). Downloads bagel_Darwin_{ARCH}.tar.gz, extracts bagel binary via tar, places at pkg/payload/usr/local/bin/bagel. Runs pkgbuild with all required flags (--root, --scripts, --identifier io.boostsecurity.bagel, --version, --install-location /). Output: build/bagel-<version>.pkg. Uses mktemp for temp dir with cleanup trap. -->
 
 - [ ] Verify the build script works end-to-end:
   - Run `bash scripts/build-pkg.sh` from the repo root
