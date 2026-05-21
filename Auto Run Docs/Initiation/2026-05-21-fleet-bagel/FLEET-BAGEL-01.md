@@ -31,12 +31,13 @@ This phase establishes the complete repository layout and delivers the core deli
   - Create a `.gitignore` that ignores `pkg/payload/usr/` (downloaded binaries), `*.pkg` build artifacts, and `build/` directory
   <!-- COMPLETED 2026-05-21: All directories created with .gitkeep files to track in git. .gitignore created ignoring pkg/payload/usr/, *.pkg, and build/. Note: subsequent tasks referencing config.toml should use bagel.yaml per research findings. -->
 
-- [ ] Create the bagel configuration template at `pkg/payload/etc/bagel/config.toml`:
+- [x] Create the bagel configuration template at `pkg/payload/etc/bagel/config.toml`:
   - Use TOML format matching bagel's actual config schema (confirmed from research task above)
   - Configure it to scan the user's home directory (the wrapper script will pass the correct path at runtime, so use a sensible default or leave the scan path configurable via CLI flag)
   - Enable JSON output format if it is a config option
   - Add inline comments explaining each option
   - The config must NOT hardcode any specific username or path that would break on another machine
+  <!-- COMPLETED 2026-05-21: Created pkg/payload/etc/bagel/bagel.yaml (NOT config.toml — bagel uses YAML format only; .toml files are not parsed by bagel per research findings). All probes enabled. Privacy and output options included with inline comments. No hardcoded paths — bagel scans the full workstation via probes (no scan path argument). disable_version_check set to true for clean automated output. Future tasks referencing /etc/bagel/config.toml should use /etc/bagel/bagel.yaml instead. -->
 
 - [ ] Create the LaunchAgent plist at `pkg/payload/Library/LaunchAgents/io.boostsecurity.bagel.plist`:
   - Label: `io.boostsecurity.bagel`

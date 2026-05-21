@@ -1,0 +1,79 @@
+# bagel configuration template
+# Installed to: /etc/bagel/bagel.yaml
+#
+# bagel scans the full workstation via its built-in probes.
+# No scan path argument is needed — probes scan their fixed system locations.
+# Use `bagel scan --config /etc/bagel/bagel.yaml` to use this file.
+#
+# Reference: https://github.com/boostsecurityio/bagel
+
+version: 1
+
+# Probes control which security checks are run.
+# Each probe scans a specific area of the workstation.
+probes:
+  # Git configuration checks (e.g., ssl.verify disabled, credential helpers)
+  git:
+    enabled: true
+
+  # SSH key and config checks (weak key types, insecure settings)
+  ssh:
+    enabled: true
+
+  # npm/Node.js credential and config checks
+  npm:
+    enabled: true
+
+  # Environment variable checks (secrets in shell env)
+  env:
+    enabled: true
+
+  # Shell history checks (secrets accidentally typed in terminal)
+  shell_history:
+    enabled: true
+
+  # Cloud provider credential checks (AWS, GCP, Azure)
+  cloud:
+    enabled: true
+
+  # JetBrains IDE credential and config checks
+  jetbrains:
+    enabled: true
+
+  # GitHub CLI (gh) credential checks
+  gh:
+    enabled: true
+
+  # AI service credential checks (OpenAI, Anthropic, etc.)
+  ai_credentials:
+    enabled: true
+
+  # AI chat history checks (secrets in chat logs)
+  ai_chats:
+    enabled: true
+
+# Privacy controls — restrict what bagel reports.
+privacy:
+  # File paths to redact from findings (supports glob patterns).
+  # Use this to suppress findings in paths that are intentionally sensitive
+  # and should not be reported (e.g., password manager databases).
+  # Example: redact_paths: ["~/.password-store/**"]
+  redact_paths: []
+
+  # Environment variable name prefixes to exclude from env probe results.
+  # Example: exclude_env_prefixes: ["MY_INTERNAL_"]
+  exclude_env_prefixes: []
+
+# Output options — control what appears in the JSON results file.
+output:
+  # Include SHA-256 hashes of files containing findings.
+  # Useful for deduplication across hosts; adds minor overhead.
+  include_file_hashes: false
+
+  # Include raw file content snippets in findings.
+  # Disabled by default to avoid transmitting sensitive data.
+  include_file_content: false
+
+# Suppress the "new version available" message in output.
+# Recommended for automated/scheduled runs to keep output clean.
+disable_version_check: true
