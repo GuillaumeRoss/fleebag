@@ -1,0 +1,43 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE plist PUBLIC "-//Apple//DTD PLIST 1.0//EN" "http://www.apple.com/DTDs/PropertyList-1.0.dtd">
+<plist version="1.0">
+<dict>
+    <!-- Unique label for this LaunchAgent -->
+    <key>Label</key>
+    <string>io.boostsecurity.bagel</string>
+
+    <!--
+        This plist installs to /Library/LaunchAgents/ (system-wide, runs per logged-in user session).
+        It does NOT install to ~/Library/LaunchAgents/.
+
+        Because /Library/LaunchAgents/ plists cannot expand $HOME in StandardOutPath /
+        StandardErrorPath values, log file creation and output redirection are handled
+        entirely by the wrapper script at /usr/local/libexec/bagel-scan. The wrapper
+        creates ~/Library/Logs/bagel/ if needed and writes timestamped log entries there.
+    -->
+
+    <!-- Full path to the wrapper script — no shell interpolation, no $HOME needed here -->
+    <key>ProgramArguments</key>
+    <array>
+        <string>/usr/local/libexec/bagel-scan</string>
+    </array>
+
+    <!-- Run once immediately when the agent is loaded (login or launchctl bootstrap) -->
+    <key>RunAtLoad</key>
+    <true/>
+
+    <!-- Repeat every 4 hours (14400 seconds) -->
+    <key>StartInterval</key>
+    <integer>14400</integer>
+
+    <!-- Background priority — does not require UI interaction -->
+    <key>ProcessType</key>
+    <string>Background</string>
+
+    <!--
+        stdout/stderr are intentionally not redirected here because $HOME cannot be
+        expanded in plist values for /Library/LaunchAgents/ agents.
+        The wrapper script handles all logging to $HOME/Library/Logs/bagel/bagel.log.
+    -->
+</dict>
+</plist>

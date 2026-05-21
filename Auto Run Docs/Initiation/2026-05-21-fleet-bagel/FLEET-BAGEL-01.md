@@ -39,7 +39,7 @@ This phase establishes the complete repository layout and delivers the core deli
   - The config must NOT hardcode any specific username or path that would break on another machine
   <!-- COMPLETED 2026-05-21: Created pkg/payload/etc/bagel/bagel.yaml (NOT config.toml — bagel uses YAML format only; .toml files are not parsed by bagel per research findings). All probes enabled. Privacy and output options included with inline comments. No hardcoded paths — bagel scans the full workstation via probes (no scan path argument). disable_version_check set to true for clean automated output. Future tasks referencing /etc/bagel/config.toml should use /etc/bagel/bagel.yaml instead. -->
 
-- [ ] Create the LaunchAgent plist at `pkg/payload/Library/LaunchAgents/io.boostsecurity.bagel.plist`:
+- [x] Create the LaunchAgent plist at `pkg/payload/Library/LaunchAgents/io.boostsecurity.bagel.plist`:
   - Label: `io.boostsecurity.bagel`
   - Program: `/usr/local/libexec/bagel-scan` (the wrapper script created below)
   - `StartInterval`: 14400 (every 4 hours)
@@ -47,8 +47,9 @@ This phase establishes the complete repository layout and delivers the core deli
   - `StandardOutPath` and `StandardErrorPath` pointing to `~/Library/Logs/bagel/bagel.log` — use the approach that works in `/Library/LaunchAgents/` context (the plist cannot expand `$HOME` directly; use the wrapper script to handle this)
   - Add `ProcessType` of `Background`
   - Note: This plist installs to `/Library/LaunchAgents/` (system-wide, runs per-user session as the logged-in user) — NOT `~/Library/LaunchAgents/`
+  <!-- COMPLETED 2026-05-21: Created pkg/payload/Library/LaunchAgents/io.boostsecurity.bagel.plist. All required keys set: Label, ProgramArguments (/usr/local/libexec/bagel-scan), RunAtLoad (true), StartInterval (14400), ProcessType (Background). StandardOutPath/StandardErrorPath intentionally omitted from the plist — $HOME cannot be expanded in /Library/LaunchAgents/ plist values; the wrapper script handles all log redirection to $HOME/Library/Logs/bagel/bagel.log. -->
 
-- [ ] Create the wrapper scan script at `pkg/payload/usr/local/libexec/bagel-scan`:
+- [x] Create the wrapper scan script at `pkg/payload/usr/local/libexec/bagel-scan`:
   - Bash script (no extension), must be executable (`chmod +x`)
   - Creates `$HOME/Library/Logs/bagel/` if it does not exist
   - Runs bagel with the correct CLI flags confirmed in the research task:
@@ -58,8 +59,9 @@ This phase establishes the complete repository layout and delivers the core deli
   - Uses `set -euo pipefail` for safety
   - Timestamps the run in the log file
   - The output must be atomic (write to a temp file then `mv` to the final path) so osquery never reads a partial file
+  <!-- COMPLETED 2026-05-21: Created pkg/payload/usr/local/libexec/bagel-scan (executable, 755). Uses /etc/bagel/bagel.yaml (NOT config.toml per research). Bagel exit code 2 (findings found) is treated as non-fatal — only exit code 1 (runtime error) aborts the run. Atomic write via results.json.tmp then mv. Log directory created at $HOME/Library/Logs/bagel/; timestamps written to bagel.log. --no-progress and --disable-version-check flags used for clean automated output. No $HOME passed as scan path — bagel scans the full workstation. -->
 
-- [ ] Create PKG postinstall script at `pkg/scripts/postinstall`:
+- [x] Create PKG postinstall script at `pkg/scripts/postinstall`:
   - Must be executable (`chmod +x`)
   - Sets correct ownership and permissions on installed files:
     - `/usr/local/bin/bagel`: root:wheel, 755
@@ -69,6 +71,7 @@ This phase establishes the complete repository layout and delivers the core deli
   - Attempts to load the LaunchAgent for the currently console-logged-in user using `launchctl bootstrap` (use `scutil` or `who` to detect the current GUI user — standard pattern for MDM postinstall scripts)
   - Prints clear status messages to stdout
   - Does not fail hard if the LaunchAgent load fails (some deployments will rely on login to trigger the load)
+  <!-- COMPLETED 2026-05-21: Created pkg/scripts/postinstall (executable, 755). Sets root:wheel ownership and correct permissions on all four installed paths. Note: config file path in the script uses /etc/bagel/bagel.yaml (not config.toml per research findings). Console user detected via scutil (State:/Users/ConsoleUser) with fallback to `who | awk '/console/'`. LaunchAgent bootstrapped via `launchctl bootstrap gui/$UID`; non-zero exit is non-fatal with a clear message that load will occur at next login. -->
 
 - [ ] Create the main PKG build script at `scripts/build-pkg.sh`:
   - Must be executable and fully self-contained (no user input required)

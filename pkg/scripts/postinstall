@@ -1,0 +1,78 @@
+#!/usr/bin/env bash
+# postinstall — PKG postinstall script for io.boostsecurity.bagel
+#
+# Runs as root after the payload is laid down by the macOS installer.
+# Responsibilities:
+#   1. Set correct ownership and permissions on installed files
+#   2. Attempt to load the LaunchAgent for the current console user
+
+set -uo pipefail
+
+# ---------------------------------------------------------------------------
+# File permissions
+# ---------------------------------------------------------------------------
+
+echo "==> Setting ownership and permissions on installed files..."
+
+chown root:wheel /usr/local/bin/bagel
+chmod 755 /usr/local/bin/bagel
+echo "    /usr/local/bin/bagel: root:wheel 755"
+
+chown root:wheel /usr/local/libexec/bagel-scan
+chmod 755 /usr/local/libexec/bagel-scan
+echo "    /usr/local/libexec/bagel-scan: root:wheel 755"
+
+chown root:wheel /etc/bagel/bagel.yaml
+chmod 644 /etc/bagel/bagel.yaml
+echo "    /etc/bagel/bagel.yaml: root:wheel 644"
+
+chown root:wheel /Library/LaunchAgents/io.boostsecurity.bagel.plist
+chmod 644 /Library/LaunchAgents/io.boostsecurity.bagel.plist
+echo "    /Library/LaunchAgents/io.boostsecurity.bagel.plist: root:wheel 644"
+
+# ---------------------------------------------------------------------------
+# Detect current console (GUI) user
+# ---------------------------------------------------------------------------
+
+# scutil is the most reliable way to get the logged-in user in MDM/postinstall
+# contexts; fall back to 'who' if scutil is unavailable or returns no user.
+CONSOLE_USER=""
+
+if command -v scutil >/dev/null 2>&1; then
+    CONSOLE_USER=$(scutil <<< "show State:/Users/ConsoleUser" 2>/dev/null \
+        | awk '/Name :/ && !/loginwindow/ { print $3; exit }')
+fi
+
+if [ -z "$CONSOLE_USER" ]; then
+    CONSOLE_USER=$(who | awk '/console/ { print $1; exit }')
+fi
+
+# ---------------------------------------------------------------------------
+# Load the LaunchAgent for the console user
+# ---------------------------------------------------------------------------
+
+PLIST=/Library/LaunchAgents/io.boostsecurity.bagel.plist
+
+if [ -z "$CONSOLE_USER" ] || [ "$CONSOLE_USER" = "root" ]; then
+    echo "==> No interactive console user detected; LaunchAgent will load at next login."
+else
+    CONSOLE_UID=$(id -u "$CONSOLE_USER" 2>/dev/null || true)
+
+    if [ -z "$CONSOLE_UID" ]; then
+        echo "==> Could not resolve UID for $CONSOLE_USER; LaunchAgent will load at next login."
+    else
+        echo "==> Attempting to bootstrap LaunchAgent for $CONSOLE_USER (uid $CONSOLE_UID)..."
+        # launchctl bootstrap loads the plist into the user's GUI session.
+        # We intentionally do not set -e around this call — some deployments
+        # (e.g. fresh installs where the session bus isn't ready) will fail here
+        # and rely on RunAtLoad triggering at next login instead.
+        if launchctl bootstrap "gui/$CONSOLE_UID" "$PLIST" 2>/dev/null; then
+            echo "    LaunchAgent loaded successfully."
+        else
+            echo "    LaunchAgent bootstrap returned non-zero; it will load at next login."
+        fi
+    fi
+fi
+
+echo "==> postinstall complete."
+exit 0

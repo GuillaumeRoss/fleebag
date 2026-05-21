@@ -1,0 +1,51 @@
+#!/usr/bin/env bash
+# bagel-scan — wrapper script for the Bagel security scanner
+#
+# Installed to: /usr/local/libexec/bagel-scan
+# Invoked by:   io.boostsecurity.bagel LaunchAgent (every 4 hours + at load)
+#
+# Behaviour:
+#   1. Creates $HOME/Library/Logs/bagel/ if absent
+#   2. Runs bagel scan, writing JSON output atomically so osquery never reads
+#      a partial file
+#   3. Timestamps each run in the log file
+#   4. Exits 0 even when bagel finds issues (exit code 2) — findings are not
+#      an execution error; only a genuine runtime failure (exit code 1) is fatal
+
+set -euo pipefail
+
+BAGEL=/usr/local/bin/bagel
+CONFIG=/etc/bagel/bagel.yaml
+LOG_DIR="$HOME/Library/Logs/bagel"
+RESULTS="$LOG_DIR/results.json"
+RESULTS_TMP="$LOG_DIR/results.json.tmp"
+LOG="$LOG_DIR/bagel.log"
+
+# Ensure log directory exists
+mkdir -p "$LOG_DIR"
+
+timestamp() {
+    date -u '+%Y-%m-%dT%H:%M:%SZ'
+}
+
+echo "[$(timestamp)] bagel-scan starting" >> "$LOG"
+
+# Run bagel; treat exit code 2 (findings detected) as non-fatal
+set +e
+"$BAGEL" scan \
+    --config "$CONFIG" \
+    --output "$RESULTS_TMP" \
+    --no-progress \
+    --disable-version-check
+BAGEL_EXIT=$?
+set -e
+
+if [ "$BAGEL_EXIT" -eq 0 ] || [ "$BAGEL_EXIT" -eq 2 ]; then
+    # Atomic promotion: osquery reads RESULTS only after the full write completes
+    mv "$RESULTS_TMP" "$RESULTS"
+    echo "[$(timestamp)] bagel-scan completed (exit $BAGEL_EXIT); results written to $RESULTS" >> "$LOG"
+else
+    rm -f "$RESULTS_TMP"
+    echo "[$(timestamp)] bagel-scan failed with exit code $BAGEL_EXIT" >> "$LOG"
+    exit "$BAGEL_EXIT"
+fi
