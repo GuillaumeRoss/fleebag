@@ -153,6 +153,41 @@ launchctl print gui/$(id -u)/zip.recyclebin.fleebag
 
 ---
 
+## Full Disk Access
+
+macOS TCC (Transparency, Consent, and Control) restricts reads on sensitive locations — `~/Desktop`, `~/Documents`, `~/Downloads`, `~/Library`, shell history files, SSH keys, cloud credential files, and more. Without Full Disk Access, bagel will silently receive permission-denied errors on most of the locations it needs to scan, producing incomplete or empty results.
+
+Full Disk Access must be granted via an MDM configuration profile (PPPC payload). **It cannot be granted interactively by the user for a background LaunchAgent process.**
+
+A sample profile is provided at `profiles/fleebag-full-disk-access.mobileconfig`.
+
+### Preparing the profile
+
+The profile requires two values that are specific to your environment:
+
+**1. UUIDs** — generate two unique identifiers:
+```sh
+uuidgen   # run twice; paste results into PAYLOAD-UUID-1 and PAYLOAD-UUID-2
+```
+
+**2. CodeRequirement** — the code signing requirement for the bagel binary. Obtain this on a Mac where bagel is already installed:
+```sh
+codesign -dr - /usr/local/bin/bagel 2>&1 | grep 'designated =>'
+```
+Example output:
+```
+designated => identifier "bagel" and anchor apple generic and certificate leaf[subject.OU] = "XXXXXXXXXX"
+```
+Paste everything after `designated => ` as the `CodeRequirement` string in the profile.
+
+> **Note:** The CodeRequirement is tied to the specific version of bagel you have installed. If you update bagel to a new release signed with a different certificate or team ID, re-derive the CodeRequirement and redeploy the profile.
+
+### Deploying the profile
+
+Sign the profile with your MDM signing certificate (if required by your MDM vendor), then upload and scope it to the same device population as the fleebag PKG. The profile must be deployed **before or alongside** the PKG — bagel will fail to scan protected paths until FDA is active.
+
+---
+
 ## Fleet Queries
 
 Two SQL files in `queries/` are ready to paste into Fleet.

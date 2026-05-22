@@ -1,0 +1,97 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE plist PUBLIC "-//Apple//DTD PLIST 1.0//EN" "http://www.apple.com/DTDs/PropertyList-1.0.dtd">
+<!--
+    fleebag-full-disk-access.mobileconfig
+    PPPC profile — grants Full Disk Access to the bagel scanner binary.
+
+    BEFORE DEPLOYING:
+    1. Replace PAYLOAD-UUID-1 and PAYLOAD-UUID-2 with values from:
+           uuidgen
+    2. Replace YOUR-ORGANIZATION with your organisation's name.
+    3. Replace the CodeRequirement placeholder with the actual value from:
+           codesign -dr - /usr/local/bin/bagel 2>&1 | grep 'designated =>'
+       Example output:
+           designated => identifier "bagel" and anchor apple generic and \
+           certificate leaf[subject.OU] = "XXXXXXXXXX"
+       Paste everything after "designated => " as the CodeRequirement string.
+    4. Sign and deploy via your MDM (Jamf, Mosyle, Kandji, etc.).
+
+    WHY THIS IS NEEDED:
+    macOS TCC (Transparency, Consent, and Control) restricts access to
+    sensitive locations — ~/Desktop, ~/Documents, ~/Downloads, ~/Library,
+    shell history files, SSH keys, cloud credentials, etc. bagel must read
+    all of these to perform a meaningful secret scan. Without Full Disk
+    Access the binary will silently receive EPERM on most interesting paths.
+
+    SCOPE:
+    Deploy to the same population as the fleebag PKG.
+-->
+<plist version="1.0">
+<dict>
+
+    <key>PayloadDisplayName</key>
+    <string>fleebag — bagel Full Disk Access</string>
+    <key>PayloadDescription</key>
+    <string>Grants Full Disk Access to the bagel secret scanner so it can read all user files during scheduled scans run by the zip.recyclebin.fleebag LaunchAgent.</string>
+    <key>PayloadIdentifier</key>
+    <string>zip.recyclebin.fleebag.pppc.profile</string>
+    <key>PayloadOrganization</key>
+    <string>YOUR-ORGANIZATION</string>
+    <key>PayloadType</key>
+    <string>Configuration</string>
+    <key>PayloadUUID</key>
+    <string>PAYLOAD-UUID-1</string>
+    <key>PayloadVersion</key>
+    <integer>1</integer>
+    <key>PayloadRemovalDisallowed</key>
+    <false/>
+
+    <key>PayloadContent</key>
+    <array>
+        <dict>
+            <key>PayloadDisplayName</key>
+            <string>Privacy Preferences — bagel Full Disk Access</string>
+            <key>PayloadDescription</key>
+            <string>SystemPolicyAllFiles grant for /usr/local/bin/bagel</string>
+            <key>PayloadIdentifier</key>
+            <string>zip.recyclebin.fleebag.pppc</string>
+            <key>PayloadOrganization</key>
+            <string>YOUR-ORGANIZATION</string>
+            <key>PayloadType</key>
+            <string>com.apple.TCC.configuration-profile-policy</string>
+            <key>PayloadUUID</key>
+            <string>PAYLOAD-UUID-2</string>
+            <key>PayloadVersion</key>
+            <integer>1</integer>
+
+            <key>Services</key>
+            <dict>
+                <key>SystemPolicyAllFiles</key>
+                <array>
+                    <dict>
+                        <key>Allowed</key>
+                        <true/>
+                        <key>CodeRequirement</key>
+                        <!--
+                            Get this value by running on a Mac where bagel is installed:
+                            codesign -dr - /usr/local/bin/bagel 2>&1 | grep 'designated =>'
+                            Paste everything after "designated => " here.
+                        -->
+                        <string>REPLACE-WITH-CODESIGN-REQUIREMENT</string>
+                        <key>Comment</key>
+                        <string>bagel workstation secret scanner — invoked by zip.recyclebin.fleebag LaunchAgent</string>
+                        <key>Identifier</key>
+                        <string>/usr/local/bin/bagel</string>
+                        <key>IdentifierType</key>
+                        <string>path</string>
+                        <key>StaticCode</key>
+                        <false/>
+                    </dict>
+                </array>
+            </dict>
+
+        </dict>
+    </array>
+
+</dict>
+</plist>
