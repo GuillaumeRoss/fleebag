@@ -1,2 +1,327 @@
 # fleet-bagel
-Scripts and queries to find secrets with bagel and track results on Fleet
+
+Deploy [bagel](https://github.com/boostsecurityio/bagel) to developer Macs via macOS PKG and surface secret-scanning results in [Fleet](https://github.com/fleetdm/fleet).
+
+![macOS](https://img.shields.io/badge/macOS-12%2B-blue) ![Fleet](https://img.shields.io/badge/Fleet-osquery-green)
+
+---
+
+## Overview
+
+**fleet-bagel** packages the [bagel](https://github.com/boostsecurityio/bagel) open-source secret scanner into a macOS installer (`.pkg`) that runs automatically on developer laptops via a LaunchAgent. Scan results are written as JSON and queried by Fleet's osquery agent, letting you see detected secrets across your entire fleet and enforce a compliance policy — all without touching each machine manually.
+
+```
+bagel binary → LaunchAgent (every 4 h) → results.json → osquery (parse_json) → Fleet
+```
+
+- **bagel** ([boostsecurityio/bagel](https://github.com/boostsecurityio/bagel)) — open-source workstation secret scanner
+- **Fleet** ([fleetdm/fleet](https://github.com/fleetdm/fleet)) — osquery-based device management and policy platform
+
+---
+
+## Prerequisites
+
+- macOS 12 (Monterey) or later
+- Xcode Command Line Tools — provides `pkgbuild`:
+  ```sh
+  xcode-select --install
+  ```
+- `python3` — pre-installed on macOS
+- `curl` — pre-installed on macOS
+- Internet access to `api.github.com` and `github.com` (to fetch the latest bagel release)
+- A Fleet instance with the fleetd agent deployed (required for the `parse_json` virtual table used by the queries)
+- Optional: `osqueryi` for local query testing (`brew install osquery`)
+
+---
+
+## Building the PKG
+
+From the repo root, run:
+
+```sh
+bash scripts/build-pkg.sh
+```
+
+The script will:
+1. Detect your Mac's architecture (`arm64` or `x86_64`)
+2. Fetch the latest bagel release metadata from the GitHub API
+3. Download and extract the arch-specific `bagel_Darwin_<arch>.tar.gz` tarball
+4. Run `pkgbuild` to assemble the installer
+
+**The bagel binary is not stored in this repository** — it is always fetched from the latest GitHub release at build time.
+
+Expected output:
+```
+build/fleebag-<version>.pkg
+```
+
+### Distributing the PKG
+
+The `.pkg` can be distributed via:
+- **MDM** (e.g., Jamf, Mosyle, Kandji) — upload and scope to your developer population
+- **Fleet software management** — upload via Fleet's built-in software deployment (Settings → Software)
+- **Manual install** — `sudo installer -pkg build/fleebag-<version>.pkg -target /`
+
+---
+
+## Installation
+
+The PKG installs the following files:
+
+| Path | Description |
+|---|---|
+| `/usr/local/bin/bagel` | The bagel scanner binary |
+| `/usr/local/libexec/fleebag-scan` | Wrapper script that handles logging and atomic output |
+| `/etc/fleebag/fleebag.yaml` | Bagel configuration (probes, privacy controls, output options) |
+| `/Library/LaunchAgents/io.boostsecurity.fleebag.plist` | LaunchAgent — runs every 4 hours and at login |
+
+The postinstall script sets correct permissions and bootstraps the LaunchAgent for the current user session immediately after installation.
+
+**Scan results** are written to:
+```
+~/Library/Logs/fleebag/results.json
+```
+
+Each user on the Mac has their own results file under their home directory.
+
+### Manual Scan Trigger
+
+To run a scan immediately without waiting for the 4-hour interval:
+
+```sh
+launchctl kickstart -k gui/$(id -u)/io.boostsecurity.fleebag
+```
+
+### Check LaunchAgent Status
+
+```sh
+launchctl print gui/$(id -u)/io.boostsecurity.fleebag
+```
+
+---
+
+## Fleet Queries
+
+Two SQL files in `queries/` are ready to paste into Fleet.
+
+### Findings Query (`queries/bagel_findings.sql`)
+
+**Purpose:** Live query — returns every secret finding from every managed Mac, with severity, rule ID, affected file path, and the timestamp of the last scan.
+
+**How to add in Fleet:** Settings → Queries → New query → paste the SQL below.
+
+```sql
+WITH local_users AS (
+    SELECT
+        username,
+        directory || '/Library/Logs/fleebag/results.json' AS results_path
+    FROM users
+    WHERE uid >= 500
+      AND directory LIKE '/Users/%'
+)
+SELECT
+    lu.username,
+    sev.value                                   AS severity,
+    rid.value                                   AS rule_id,
+    fp.value                                    AS file_path,
+    ln.value                                    AS line_number,
+    datetime(f.mtime, 'unixepoch')              AS last_scan
+FROM local_users lu
+JOIN parse_json sev
+    ON  sev.path   = lu.results_path
+    AND sev.key    = 'severity'
+    AND sev.parent LIKE 'findings/%'
+JOIN parse_json rid
+    ON  rid.path   = lu.results_path
+    AND rid.key    = 'id'
+    AND rid.parent = sev.parent
+LEFT JOIN parse_json fp
+    ON  fp.path   = lu.results_path
+    AND fp.key    = 'path'
+    AND fp.parent = sev.parent
+LEFT JOIN parse_json ln
+    ON  ln.path   = lu.results_path
+    AND ln.key    = 'line'
+    AND ln.parent = sev.parent
+LEFT JOIN file f
+    ON f.path = lu.results_path
+ORDER BY
+    CASE sev.value
+        WHEN 'critical' THEN 1
+        WHEN 'high'     THEN 2
+        WHEN 'medium'   THEN 3
+        WHEN 'low'      THEN 4
+        ELSE                 5
+    END,
+    lu.username;
+```
+
+**Output columns:**
+
+| Column | Description |
+|---|---|
+| `username` | macOS short username whose results file contained the finding |
+| `severity` | Lowercase severity: `critical`, `high`, `medium`, or `low` |
+| `rule_id` | Machine-readable rule name (e.g., `git-ssl-verify-disabled`) |
+| `file_path` | Location of the affected file or config (may be NULL for some rules) |
+| `line_number` | Line number (always NULL — not in bagel's schema; reserved for future use) |
+| `last_scan` | ISO 8601 timestamp of when the results file was last written |
+
+---
+
+### Policy Query (`queries/bagel_policy.sql`)
+
+**Purpose:** Automated policy — evaluates whether a device is compliant (scan is current, no critical secrets detected).
+
+**How to add in Fleet:** Policies → Add policy → paste the SQL below.
+
+**Fleet policy semantics:** Returns ≥ 1 row = **PASS**; returns 0 rows = **FAIL**.
+
+```sql
+WITH local_users AS (
+    SELECT
+        username,
+        directory || '/Library/Logs/fleebag/results.json' AS results_path
+    FROM users
+    WHERE uid  >= 500
+      AND directory LIKE '/Users/%'
+),
+
+valid_users AS (
+    SELECT lu.username
+    FROM local_users lu
+    JOIN file f
+        ON f.path = lu.results_path
+    WHERE
+        (strftime('%s', 'now') - f.mtime) < 604800
+        AND NOT EXISTS (
+            SELECT 1
+            FROM parse_json pj
+            WHERE pj.path   = lu.results_path
+              AND pj.key    = 'severity'
+              AND pj.parent LIKE 'findings/%'
+              AND pj.value  = 'critical'
+        )
+)
+
+SELECT
+    'pass'      AS result,
+    vu.username AS username
+FROM valid_users vu
+WHERE
+    (SELECT COUNT(*) FROM valid_users)  = (SELECT COUNT(*) FROM local_users)
+    AND (SELECT COUNT(*) FROM local_users) > 0
+LIMIT 1;
+```
+
+**Pass/fail logic:**
+
+| Outcome | Condition |
+|---|---|
+| **PASS** | `results.json` exists, was written within the last 7 days, and contains no `critical`-severity findings — for every local user on the device |
+| **FAIL** | `results.json` is missing or stale (> 7 days old), or contains one or more `critical`-severity findings, for any local user |
+
+**Recommended Fleet remediation actions:**
+- Notify the device owner via Fleet's built-in email/Slack notification
+- Create a ticket in your issue tracker using Fleet's automation rules
+- For persistent failures, scope a re-deployment of the PKG via MDM or Fleet software management
+
+---
+
+## Configuration
+
+The installed configuration file is `/etc/fleebag/fleebag.yaml`. It controls which probes run, privacy settings, and output options.
+
+### Enabling or disabling probes
+
+Edit `pkg/payload/etc/fleebag/fleebag.yaml` before building the PKG. Set `enabled: false` under any probe to skip it:
+
+```yaml
+probes:
+  git:
+    enabled: true
+  ssh:
+    enabled: true
+  npm:
+    enabled: true
+  env:
+    enabled: true
+  shell_history:
+    enabled: false   # disable if shell history scanning is not desired
+  cloud:
+    enabled: true
+  jetbrains:
+    enabled: true
+  gh:
+    enabled: true
+  ai_credentials:
+    enabled: true
+  ai_chats:
+    enabled: false   # disable if AI chat history scanning is not desired
+```
+
+### Privacy controls
+
+To suppress findings in specific paths (e.g., a password manager database):
+
+```yaml
+privacy:
+  redact_paths:
+    - "~/.password-store/**"
+  exclude_env_prefixes:
+    - "MY_INTERNAL_"
+```
+
+### Adjusting the scan interval
+
+The LaunchAgent runs every 4 hours by default (`StartInterval: 14400`). To change this, edit `pkg/payload/Library/LaunchAgents/io.boostsecurity.fleebag.plist` before building the PKG:
+
+```xml
+<key>StartInterval</key>
+<integer>14400</integer>   <!-- seconds; 3600 = 1 h, 86400 = 24 h -->
+```
+
+### Changing the output path
+
+The results file path is hardcoded in `pkg/payload/usr/local/libexec/fleebag-scan` (`LOG_DIR` variable). If you change it, update `queries/bagel_findings.sql` and `queries/bagel_policy.sql` to match — both queries derive the results path from the user's home directory using the same pattern.
+
+---
+
+## Testing
+
+The test suite validates the osquery query logic against four fixture scenarios without requiring a Fleet instance.
+
+### Prerequisites
+
+- `python3` (standard on macOS)
+- `osqueryi` for smoke tests (optional): `brew install osquery`
+
+### Run the tests
+
+```sh
+./tests/update_timestamps.sh && ./tests/run_tests.sh
+```
+
+`update_timestamps.sh` must be run first — it sets the fixture file modification times to simulate fresh (now) and stale (8 days ago) scans.
+
+### Fixture scenarios
+
+| Fixture | Findings present | Policy result |
+|---|---|---|
+| `no_critical_fresh.json` | Yes (high/medium/low) | **PASS** — fresh scan, no critical findings |
+| `no_critical_stale.json` | Yes (high/medium/low) | **FAIL** — scan is stale (> 7 days) |
+| `critical_fresh.json` | Yes (includes critical) | **FAIL** — critical findings present |
+| `critical_stale.json` | Yes (includes critical) | **FAIL** — stale and has critical findings |
+
+### Expected output
+
+```
+=== Results: 8/8 passed ===
+All 8 assertions passed.
+```
+
+---
+
+## License
+
+See [LICENSE](LICENSE).

@@ -1,0 +1,62 @@
+{
+  "metadata": {
+    "version": "0.7.0",
+    "timestamp": "2026-05-21T09:15:00Z",
+    "duration": "2.875s"
+  },
+  "host": {
+    "hostname": "test-laptop-03",
+    "os": "darwin",
+    "arch": "arm64",
+    "username": "testuser",
+    "system": {
+      "os_version": "15.0",
+      "kernel_version": "Darwin 25.0.0",
+      "cpu_model": "Apple M-series",
+      "cpu_cores": 8,
+      "ram_total_gb": 16
+    }
+  },
+  "findings": [
+    {
+      "id": "aws-access-key-in-env",
+      "probe": "env",
+      "severity": "critical",
+      "title": "AWS Access Key Exposed in Environment",
+      "message": "An AWS access key (REDACTED_aws_key_example) was found set as an environment variable. This credential is visible to all processes on the system and may appear in crash dumps or logs.",
+      "path": "env:AWS_ACCESS_KEY_ID"
+    },
+    {
+      "id": "openai-api-key-in-env",
+      "probe": "ai_credentials",
+      "severity": "critical",
+      "title": "OpenAI API Key Exposed in Environment",
+      "message": "An OpenAI API key (REDACTED_openai_key_example) was found in the environment. This key can be used to make API calls billed to your account.",
+      "path": "env:OPENAI_API_KEY"
+    },
+    {
+      "id": "git-ssl-verify-disabled",
+      "probe": "git",
+      "severity": "high",
+      "title": "Git SSL Verification Disabled",
+      "message": "Git is configured with http.sslVerify=false in the global config. This disables TLS certificate validation for all Git operations, exposing credentials and code to MITM attacks.",
+      "path": "git-config:http.sslverify"
+    },
+    {
+      "id": "npm-authtoken-exposed",
+      "probe": "npm",
+      "severity": "high",
+      "title": "npm Auth Token in .npmrc",
+      "message": "An npm authentication token was found in /Users/testuser/.npmrc. This token grants publish access to npm packages associated with this account.",
+      "path": "/Users/testuser/.npmrc"
+    },
+    {
+      "id": "ssh-private-key-passphraseless",
+      "probe": "ssh",
+      "severity": "low",
+      "title": "SSH Private Key Without Passphrase",
+      "message": "An SSH private key at /Users/testuser/.ssh/id_rsa is not protected by a passphrase. If this file is stolen, the key can be used immediately without any additional credentials.",
+      "path": "/Users/testuser/.ssh/id_rsa"
+    }
+  ]
+}

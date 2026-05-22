@@ -4,7 +4,7 @@
 <dict>
     <!-- Unique label for this LaunchAgent -->
     <key>Label</key>
-    <string>io.boostsecurity.bagel</string>
+    <string>io.boostsecurity.fleebag</string>
 
     <!--
         This plist installs to /Library/LaunchAgents/ (system-wide, runs per logged-in user session).
@@ -12,14 +12,14 @@
 
         Because /Library/LaunchAgents/ plists cannot expand $HOME in StandardOutPath /
         StandardErrorPath values, log file creation and output redirection are handled
-        entirely by the wrapper script at /usr/local/libexec/bagel-scan. The wrapper
-        creates ~/Library/Logs/bagel/ if needed and writes timestamped log entries there.
+        entirely by the wrapper script at /usr/local/libexec/fleebag-scan. The wrapper
+        creates ~/Library/Logs/fleebag/ if needed and writes timestamped log entries there.
     -->
 
     <!-- Full path to the wrapper script — no shell interpolation, no $HOME needed here -->
     <key>ProgramArguments</key>
     <array>
-        <string>/usr/local/libexec/bagel-scan</string>
+        <string>/usr/local/libexec/fleebag-scan</string>
     </array>
 
     <!-- Run once immediately when the agent is loaded (login or launchctl bootstrap) -->
@@ -37,7 +37,7 @@
     <!--
         stdout/stderr are intentionally not redirected here because $HOME cannot be
         expanded in plist values for /Library/LaunchAgents/ agents.
-        The wrapper script handles all logging to $HOME/Library/Logs/bagel/bagel.log.
+        The wrapper script handles all logging to $HOME/Library/Logs/fleebag/fleebag.log.
     -->
 </dict>
 </plist>

@@ -1,6 +1,6 @@
 #!/usr/bin/env bash
 # =============================================================================
-# build-pkg.sh — Build the fleet-bagel macOS installer package
+# build-pkg.sh — Build the fleebag macOS installer package
 #
 # Usage:
 #   bash scripts/build-pkg.sh
@@ -15,13 +15,13 @@
 #   1. Detects host architecture (arm64 or x86_64)
 #   2. Fetches the latest bagel release metadata from the GitHub API
 #   3. Downloads the arch-specific bagel tarball and extracts the binary
-#   4. Runs pkgbuild to produce build/bagel-<version>.pkg
+#   4. Runs pkgbuild to produce build/fleebag-<version>.pkg
 #
 # The resulting .pkg installs:
 #   /usr/local/bin/bagel              — bagel binary
-#   /usr/local/libexec/bagel-scan     — wrapper scan script
-#   /etc/bagel/bagel.yaml             — configuration template
-#   /Library/LaunchAgents/io.boostsecurity.bagel.plist
+#   /usr/local/libexec/fleebag-scan   — wrapper scan script
+#   /etc/fleebag/fleebag.yaml         — configuration template
+#   /Library/LaunchAgents/io.boostsecurity.fleebag.plist
 #
 # The postinstall script sets permissions and bootstraps the LaunchAgent.
 # =============================================================================
@@ -104,10 +104,15 @@ chmod 755 "$BIN_DIR/bagel"
 echo "[build-pkg] Binary placed at $BIN_DIR/bagel"
 
 # ---------------------------------------------------------------------------
+# Remove .gitkeep placeholder files from payload (not for installation)
+# ---------------------------------------------------------------------------
+find "$PAYLOAD_DIR" -name '.gitkeep' -delete
+
+# ---------------------------------------------------------------------------
 # Create build output directory
 # ---------------------------------------------------------------------------
 mkdir -p "$BUILD_DIR"
-PKG_PATH="$BUILD_DIR/bagel-${VERSION}.pkg"
+PKG_PATH="$BUILD_DIR/fleebag-${VERSION}.pkg"
 
 # ---------------------------------------------------------------------------
 # Run pkgbuild
@@ -116,7 +121,7 @@ echo "[build-pkg] Running pkgbuild..."
 pkgbuild \
   --root "$PAYLOAD_DIR" \
   --scripts "$SCRIPTS_DIR" \
-  --identifier "io.boostsecurity.bagel" \
+  --identifier "io.boostsecurity.fleebag" \
   --version "$VERSION" \
   --install-location "/" \
   "$PKG_PATH"

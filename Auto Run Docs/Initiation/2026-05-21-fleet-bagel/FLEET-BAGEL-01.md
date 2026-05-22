@@ -91,9 +91,10 @@ This phase establishes the complete repository layout and delivers the core deli
   - Includes a usage/help comment block at the top of the script
   <!-- COMPLETED 2026-05-21: Created scripts/build-pkg.sh (executable, 755). Detects arch via uname -m (arm64/x86_64). Fetches GitHub API, parses version and download URL with python3 (no jq dependency). Downloads bagel_Darwin_{ARCH}.tar.gz, extracts bagel binary via tar, places at pkg/payload/usr/local/bin/bagel. Runs pkgbuild with all required flags (--root, --scripts, --identifier io.boostsecurity.bagel, --version, --install-location /). Output: build/bagel-<version>.pkg. Uses mktemp for temp dir with cleanup trap. -->
 
-- [ ] Verify the build script works end-to-end:
+- [x] Verify the build script works end-to-end:
   - Run `bash scripts/build-pkg.sh` from the repo root
   - Confirm it downloads the binary, creates `build/bagel-*.pkg`, and exits cleanly
   - Run `pkgutil --payload-files build/bagel-*.pkg` to confirm the pkg contains the expected files
   - Fix any issues found — the script must produce a working pkg before this phase is complete
   - Do NOT install the pkg on this machine; verification via `pkgutil` is sufficient
+  <!-- COMPLETED 2026-05-21: Build script ran successfully on arm64 (Apple Silicon). Downloaded bagel v0.7.0 tarball, extracted binary, ran pkgbuild, produced build/bagel-0.7.0.pkg. pkgutil --payload-files confirmed all 4 expected files present: /usr/local/bin/bagel, /usr/local/libexec/bagel-scan, /etc/bagel/bagel.yaml, /Library/LaunchAgents/io.boostsecurity.bagel.plist. Fixed one issue: .gitkeep placeholder files were being bundled into the pkg payload — added a `find ... -name '.gitkeep' -delete` step to build-pkg.sh before pkgbuild runs. Redundant .gitkeep files in etc/bagel/ and Library/LaunchAgents/ (which now have real files) removed from repo. -->

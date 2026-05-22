@@ -1,0 +1,62 @@
+{
+  "metadata": {
+    "version": "0.7.0",
+    "timestamp": "2026-05-13T09:15:00Z",
+    "duration": "2.651s"
+  },
+  "host": {
+    "hostname": "test-laptop-04",
+    "os": "darwin",
+    "arch": "arm64",
+    "username": "testuser",
+    "system": {
+      "os_version": "15.0",
+      "kernel_version": "Darwin 25.0.0",
+      "cpu_model": "Apple M-series",
+      "cpu_cores": 8,
+      "ram_total_gb": 16
+    }
+  },
+  "findings": [
+    {
+      "id": "aws-access-key-in-env",
+      "probe": "env",
+      "severity": "critical",
+      "title": "AWS Access Key Exposed in Environment",
+      "message": "An AWS access key (REDACTED_aws_key_example) was found set as an environment variable. This credential is visible to all processes on the system and may appear in crash dumps or logs.",
+      "path": "env:AWS_ACCESS_KEY_ID"
+    },
+    {
+      "id": "github-token-in-env",
+      "probe": "env",
+      "severity": "critical",
+      "title": "GitHub Token Exposed in Environment",
+      "message": "A GitHub personal access token (REDACTED_github_token_example) was found set as an environment variable. This token may grant repository read/write access.",
+      "path": "env:GITHUB_TOKEN"
+    },
+    {
+      "id": "git-ssl-verify-disabled",
+      "probe": "git",
+      "severity": "high",
+      "title": "Git SSL Verification Disabled",
+      "message": "Git is configured with http.sslVerify=false in the global config. This disables TLS certificate validation for all Git operations, exposing credentials and code to MITM attacks.",
+      "path": "git-config:http.sslverify"
+    },
+    {
+      "id": "ssh-agent-forwarding-enabled",
+      "probe": "ssh",
+      "severity": "low",
+      "title": "SSH Agent Forwarding Enabled",
+      "message": "SSH agent forwarding is enabled globally in /Users/testuser/.ssh/config. This can expose your SSH keys to compromised remote hosts.",
+      "path": "/Users/testuser/.ssh/config"
+    },
+    {
+      "id": "shell-history-credential-pattern",
+      "probe": "shell_history",
+      "severity": "low",
+      "title": "Credential Pattern in Shell History",
+      "message": "A pattern resembling a credential (e.g., password= or token= flag) was found in shell history. Credentials passed on the command line may be logged in plaintext.",
+      "path": "/Users/testuser/.zsh_history"
+    }
+  ]
+}

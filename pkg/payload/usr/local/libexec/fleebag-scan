@@ -1,11 +1,11 @@
 #!/usr/bin/env bash
-# bagel-scan — wrapper script for the Bagel security scanner
+# fleebag-scan — wrapper script for the Bagel security scanner
 #
-# Installed to: /usr/local/libexec/bagel-scan
-# Invoked by:   io.boostsecurity.bagel LaunchAgent (every 4 hours + at load)
+# Installed to: /usr/local/libexec/fleebag-scan
+# Invoked by:   io.boostsecurity.fleebag LaunchAgent (every 4 hours + at load)
 #
 # Behaviour:
-#   1. Creates $HOME/Library/Logs/bagel/ if absent
+#   1. Creates $HOME/Library/Logs/fleebag/ if absent
 #   2. Runs bagel scan, writing JSON output atomically so osquery never reads
 #      a partial file
 #   3. Timestamps each run in the log file
@@ -15,11 +15,11 @@
 set -euo pipefail
 
 BAGEL=/usr/local/bin/bagel
-CONFIG=/etc/bagel/bagel.yaml
-LOG_DIR="$HOME/Library/Logs/bagel"
+CONFIG=/etc/fleebag/fleebag.yaml
+LOG_DIR="$HOME/Library/Logs/fleebag"
 RESULTS="$LOG_DIR/results.json"
 RESULTS_TMP="$LOG_DIR/results.json.tmp"
-LOG="$LOG_DIR/bagel.log"
+LOG="$LOG_DIR/fleebag.log"
 
 # Ensure log directory exists
 mkdir -p "$LOG_DIR"
@@ -28,7 +28,7 @@ timestamp() {
     date -u '+%Y-%m-%dT%H:%M:%SZ'
 }
 
-echo "[$(timestamp)] bagel-scan starting" >> "$LOG"
+echo "[$(timestamp)] fleebag-scan starting" >> "$LOG"
 
 # Run bagel; treat exit code 2 (findings detected) as non-fatal
 set +e
@@ -43,9 +43,9 @@ set -e
 if [ "$BAGEL_EXIT" -eq 0 ] || [ "$BAGEL_EXIT" -eq 2 ]; then
     # Atomic promotion: osquery reads RESULTS only after the full write completes
     mv "$RESULTS_TMP" "$RESULTS"
-    echo "[$(timestamp)] bagel-scan completed (exit $BAGEL_EXIT); results written to $RESULTS" >> "$LOG"
+    echo "[$(timestamp)] fleebag-scan completed (exit $BAGEL_EXIT); results written to $RESULTS" >> "$LOG"
 else
     rm -f "$RESULTS_TMP"
-    echo "[$(timestamp)] bagel-scan failed with exit code $BAGEL_EXIT" >> "$LOG"
+    echo "[$(timestamp)] fleebag-scan failed with exit code $BAGEL_EXIT" >> "$LOG"
     exit "$BAGEL_EXIT"
 fi

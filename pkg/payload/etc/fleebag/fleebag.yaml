@@ -1,9 +1,9 @@
-# bagel configuration template
-# Installed to: /etc/bagel/bagel.yaml
+# fleebag configuration template
+# Installed to: /etc/fleebag/fleebag.yaml
 #
 # bagel scans the full workstation via its built-in probes.
 # No scan path argument is needed — probes scan their fixed system locations.
-# Use `bagel scan --config /etc/bagel/bagel.yaml` to use this file.
+# Use `bagel scan --config /etc/fleebag/fleebag.yaml` to use this file.
 #
 # Reference: https://github.com/boostsecurityio/bagel
 

@@ -1,5 +1,5 @@
 #!/usr/bin/env bash
-# postinstall — PKG postinstall script for io.boostsecurity.bagel
+# postinstall — PKG postinstall script for io.boostsecurity.fleebag
 #
 # Runs as root after the payload is laid down by the macOS installer.
 # Responsibilities:
@@ -18,17 +18,17 @@ chown root:wheel /usr/local/bin/bagel
 chmod 755 /usr/local/bin/bagel
 echo "    /usr/local/bin/bagel: root:wheel 755"
 
-chown root:wheel /usr/local/libexec/bagel-scan
-chmod 755 /usr/local/libexec/bagel-scan
-echo "    /usr/local/libexec/bagel-scan: root:wheel 755"
+chown root:wheel /usr/local/libexec/fleebag-scan
+chmod 755 /usr/local/libexec/fleebag-scan
+echo "    /usr/local/libexec/fleebag-scan: root:wheel 755"
 
-chown root:wheel /etc/bagel/bagel.yaml
-chmod 644 /etc/bagel/bagel.yaml
-echo "    /etc/bagel/bagel.yaml: root:wheel 644"
+chown root:wheel /etc/fleebag/fleebag.yaml
+chmod 644 /etc/fleebag/fleebag.yaml
+echo "    /etc/fleebag/fleebag.yaml: root:wheel 644"
 
-chown root:wheel /Library/LaunchAgents/io.boostsecurity.bagel.plist
-chmod 644 /Library/LaunchAgents/io.boostsecurity.bagel.plist
-echo "    /Library/LaunchAgents/io.boostsecurity.bagel.plist: root:wheel 644"
+chown root:wheel /Library/LaunchAgents/io.boostsecurity.fleebag.plist
+chmod 644 /Library/LaunchAgents/io.boostsecurity.fleebag.plist
+echo "    /Library/LaunchAgents/io.boostsecurity.fleebag.plist: root:wheel 644"
 
 # ---------------------------------------------------------------------------
 # Detect current console (GUI) user
@@ -51,7 +51,7 @@ fi
 # Load the LaunchAgent for the console user
 # ---------------------------------------------------------------------------
 
-PLIST=/Library/LaunchAgents/io.boostsecurity.bagel.plist
+PLIST=/Library/LaunchAgents/io.boostsecurity.fleebag.plist
 
 if [ -z "$CONSOLE_USER" ] || [ "$CONSOLE_USER" = "root" ]; then
     echo "==> No interactive console user detected; LaunchAgent will load at next login."
