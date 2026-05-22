@@ -15,7 +15,7 @@
 set -euo pipefail
 
 BAGEL=/usr/local/bin/bagel
-CONFIG=/etc/fleebag/fleebag.yaml
+CONFIG=/etc/fleebag/bagel.yaml
 LOG_DIR="$HOME/Library/Logs/fleebag"
 RESULTS="$LOG_DIR/results.json"
 RESULTS_TMP="$LOG_DIR/results.json.tmp"

@@ -22,9 +22,9 @@ chown root:wheel /usr/local/libexec/fleebag-scan
 chmod 755 /usr/local/libexec/fleebag-scan
 echo "    /usr/local/libexec/fleebag-scan: root:wheel 755"
 
-chown root:wheel /etc/fleebag/fleebag.yaml
-chmod 644 /etc/fleebag/fleebag.yaml
-echo "    /etc/fleebag/fleebag.yaml: root:wheel 644"
+chown root:wheel /etc/fleebag/bagel.yaml
+chmod 644 /etc/fleebag/bagel.yaml
+echo "    /etc/fleebag/bagel.yaml: root:wheel 644"
 
 chown root:wheel /Library/LaunchAgents/zip.recyclebin.fleebag.plist
 chmod 644 /Library/LaunchAgents/zip.recyclebin.fleebag.plist

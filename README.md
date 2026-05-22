@@ -18,7 +18,7 @@ flowchart TD
 
     subgraph MAC["Developer Mac"]
         LA["LaunchAgent\nzip.recyclebin.fleebag\nevery 4 h + at login"] --> SCAN["fleebag-scan\n/usr/local/libexec/fleebag-scan"]
-        CFG["/etc/fleebag/fleebag.yaml"] --> SCAN
+        CFG["/etc/fleebag/bagel.yaml"] --> SCAN
         BAGEL["/usr/local/bin/bagel"] --> SCAN
         SCAN -->|atomic write| RESULTS["~/Library/Logs/fleebag/results.json"]
     end
@@ -88,7 +88,7 @@ The PKG installs the following files:
 |---|---|
 | `/usr/local/bin/bagel` | The bagel scanner binary |
 | `/usr/local/libexec/fleebag-scan` | Wrapper script that handles logging and atomic output |
-| `/etc/fleebag/fleebag.yaml` | Bagel configuration (probes, privacy controls, output options) |
+| `/etc/fleebag/bagel.yaml` | Bagel configuration (probes, privacy controls, output options) |
 | `/Library/LaunchAgents/zip.recyclebin.fleebag.plist` | LaunchAgent — runs every 4 hours and at login |
 
 The postinstall script sets correct permissions and bootstraps the LaunchAgent for the current user session immediately after installation.
@@ -246,11 +246,11 @@ LIMIT 1;
 
 ## Configuration
 
-The installed configuration file is `/etc/fleebag/fleebag.yaml`. It controls which probes run, privacy settings, and output options.
+The installed configuration file is `/etc/fleebag/bagel.yaml`. It controls which probes run, privacy settings, and output options.
 
 ### Enabling or disabling probes
 
-Edit `pkg/payload/etc/fleebag/fleebag.yaml` before building the PKG. Set `enabled: false` under any probe to skip it:
+Edit `pkg/payload/etc/fleebag/bagel.yaml` before building the PKG. Set `enabled: false` under any probe to skip it:
 
 ```yaml
 probes:

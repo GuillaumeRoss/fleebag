@@ -20,7 +20,7 @@
 # The resulting .pkg installs:
 #   /usr/local/bin/bagel              — bagel binary
 #   /usr/local/libexec/fleebag-scan   — wrapper scan script
-#   /etc/fleebag/fleebag.yaml         — configuration template
+#   /etc/fleebag/bagel.yaml         — configuration template
 #   /Library/LaunchAgents/zip.recyclebin.fleebag.plist
 #
 # The postinstall script sets permissions and bootstraps the LaunchAgent.
