@@ -2,7 +2,7 @@
 # fleebag-scan — wrapper script for the Bagel security scanner
 #
 # Installed to: /usr/local/libexec/fleebag-scan
-# Invoked by:   io.boostsecurity.fleebag LaunchAgent (every 4 hours + at load)
+# Invoked by:   zip.recyclebin.fleebag LaunchAgent (every 4 hours + at load)
 #
 # Behaviour:
 #   1. Creates $HOME/Library/Logs/fleebag/ if absent

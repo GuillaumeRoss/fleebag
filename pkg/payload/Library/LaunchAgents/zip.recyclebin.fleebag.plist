@@ -4,7 +4,7 @@
 <dict>
     <!-- Unique label for this LaunchAgent -->
     <key>Label</key>
-    <string>io.boostsecurity.fleebag</string>
+    <string>zip.recyclebin.fleebag</string>
 
     <!--
         This plist installs to /Library/LaunchAgents/ (system-wide, runs per logged-in user session).

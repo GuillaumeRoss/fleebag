@@ -21,7 +21,7 @@
 #   /usr/local/bin/bagel              — bagel binary
 #   /usr/local/libexec/fleebag-scan   — wrapper scan script
 #   /etc/fleebag/fleebag.yaml         — configuration template
-#   /Library/LaunchAgents/io.boostsecurity.fleebag.plist
+#   /Library/LaunchAgents/zip.recyclebin.fleebag.plist
 #
 # The postinstall script sets permissions and bootstraps the LaunchAgent.
 # =============================================================================
@@ -121,7 +121,7 @@ echo "[build-pkg] Running pkgbuild..."
 pkgbuild \
   --root "$PAYLOAD_DIR" \
   --scripts "$SCRIPTS_DIR" \
-  --identifier "io.boostsecurity.fleebag" \
+  --identifier "zip.recyclebin.fleebag" \
   --version "$VERSION" \
   --install-location "/" \
   "$PKG_PATH"

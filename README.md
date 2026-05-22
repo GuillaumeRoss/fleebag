@@ -1,4 +1,4 @@
-# fleet-bagel
+# fleebag
 
 Deploy [bagel](https://github.com/boostsecurityio/bagel) to developer Macs via macOS PKG and surface secret-scanning results in [Fleet](https://github.com/fleetdm/fleet).
 
@@ -8,10 +8,26 @@ Deploy [bagel](https://github.com/boostsecurityio/bagel) to developer Macs via m
 
 ## Overview
 
-**fleet-bagel** packages the [bagel](https://github.com/boostsecurityio/bagel) open-source secret scanner into a macOS installer (`.pkg`) that runs automatically on developer laptops via a LaunchAgent. Scan results are written as JSON and queried by Fleet's osquery agent, letting you see detected secrets across your entire fleet and enforce a compliance policy — all without touching each machine manually.
+**fleebag** packages the [bagel](https://github.com/boostsecurityio/bagel) open-source secret scanner into a macOS installer (`.pkg`) that runs automatically on developer laptops via a LaunchAgent. Scan results are written as JSON and queried by Fleet's osquery agent, letting you see detected secrets across your entire fleet and enforce a compliance policy — all without touching each machine manually.
 
-```
-bagel binary → LaunchAgent (every 4 h) → results.json → osquery (parse_json) → Fleet
+```mermaid
+flowchart TD
+    GH["boostsecurityio/bagel\nGitHub releases"] -->|fetched at build| BUILD["build-pkg.sh"]
+    BUILD -->|pkgbuild| PKG["fleebag-VERSION.pkg"]
+    PKG -->|MDM / Fleet software / manual install| MAC
+
+    subgraph MAC["Developer Mac"]
+        LA["LaunchAgent\nzip.recyclebin.fleebag\nevery 4 h + at login"] --> SCAN["fleebag-scan\n/usr/local/libexec/fleebag-scan"]
+        CFG["/etc/fleebag/fleebag.yaml"] --> SCAN
+        BAGEL["/usr/local/bin/bagel"] --> SCAN
+        SCAN -->|atomic write| RESULTS["~/Library/Logs/fleebag/results.json"]
+    end
+
+    subgraph FLEET["Fleet"]
+        OQ["osquery agent\nparse_json virtual table"] -->|reads| RESULTS
+        OQ --> FINDINGS["bagel_findings.sql\nlive query"]
+        OQ --> POLICY["fleebag policy\ncompliance check"]
+    end
 ```
 
 - **bagel** ([boostsecurityio/bagel](https://github.com/boostsecurityio/bagel)) — open-source workstation secret scanner
@@ -73,7 +89,7 @@ The PKG installs the following files:
 | `/usr/local/bin/bagel` | The bagel scanner binary |
 | `/usr/local/libexec/fleebag-scan` | Wrapper script that handles logging and atomic output |
 | `/etc/fleebag/fleebag.yaml` | Bagel configuration (probes, privacy controls, output options) |
-| `/Library/LaunchAgents/io.boostsecurity.fleebag.plist` | LaunchAgent — runs every 4 hours and at login |
+| `/Library/LaunchAgents/zip.recyclebin.fleebag.plist` | LaunchAgent — runs every 4 hours and at login |
 
 The postinstall script sets correct permissions and bootstraps the LaunchAgent for the current user session immediately after installation.
 
@@ -89,13 +105,13 @@ Each user on the Mac has their own results file under their home directory.
 To run a scan immediately without waiting for the 4-hour interval:
 
 ```sh
-launchctl kickstart -k gui/$(id -u)/io.boostsecurity.fleebag
+launchctl kickstart -k gui/$(id -u)/zip.recyclebin.fleebag
 ```
 
 ### Check LaunchAgent Status
 
 ```sh
-launchctl print gui/$(id -u)/io.boostsecurity.fleebag
+launchctl print gui/$(id -u)/zip.recyclebin.fleebag
 ```
 
 ---
@@ -274,7 +290,7 @@ privacy:
 
 ### Adjusting the scan interval
 
-The LaunchAgent runs every 4 hours by default (`StartInterval: 14400`). To change this, edit `pkg/payload/Library/LaunchAgents/io.boostsecurity.fleebag.plist` before building the PKG:
+The LaunchAgent runs every 4 hours by default (`StartInterval: 14400`). To change this, edit `pkg/payload/Library/LaunchAgents/zip.recyclebin.fleebag.plist` before building the PKG:
 
 ```xml
 <key>StartInterval</key>
