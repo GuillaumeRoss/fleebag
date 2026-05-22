@@ -14,6 +14,22 @@ set -uo pipefail
 
 echo "==> Setting ownership and permissions on installed files..."
 
+# Harden parent directories so non-root users cannot replace files that run
+# as other users via the system-wide LaunchAgent.
+# Note: on Intel Macs with Homebrew, /usr/local/bin is often admin-group-writable.
+# Resetting to root:wheel 755 is the correct posture for managed fleet deployment.
+chown root:wheel /usr/local/bin
+chmod 755 /usr/local/bin
+echo "    /usr/local/bin: root:wheel 755"
+
+chown root:wheel /usr/local/libexec
+chmod 755 /usr/local/libexec
+echo "    /usr/local/libexec: root:wheel 755"
+
+chown root:wheel /etc/fleebag
+chmod 755 /etc/fleebag
+echo "    /etc/fleebag: root:wheel 755"
+
 chown root:wheel /usr/local/bin/bagel
 chmod 755 /usr/local/bin/bagel
 echo "    /usr/local/bin/bagel: root:wheel 755"

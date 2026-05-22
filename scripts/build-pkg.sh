@@ -87,19 +87,19 @@ echo "[build-pkg] Download URL: $DOWNLOAD_URL"
 # ---------------------------------------------------------------------------
 # Download and extract the bagel binary
 # ---------------------------------------------------------------------------
-TMPDIR="$(mktemp -d)"
-trap 'rm -rf "$TMPDIR"' EXIT
+BUILD_TMP="$(mktemp -d)"
+trap 'rm -rf "$BUILD_TMP"' EXIT
 
-TARBALL="$TMPDIR/$ASSET_NAME"
+TARBALL="$BUILD_TMP/$ASSET_NAME"
 echo "[build-pkg] Downloading $ASSET_NAME..."
 curl -fsSL -o "$TARBALL" "$DOWNLOAD_URL"
 
 echo "[build-pkg] Extracting bagel binary..."
-tar -xzf "$TARBALL" -C "$TMPDIR" bagel
+tar -xzf "$TARBALL" -C "$BUILD_TMP" bagel
 
 # Place binary in payload
 mkdir -p "$BIN_DIR"
-cp "$TMPDIR/bagel" "$BIN_DIR/bagel"
+cp "$BUILD_TMP/bagel" "$BIN_DIR/bagel"
 chmod 755 "$BIN_DIR/bagel"
 echo "[build-pkg] Binary placed at $BIN_DIR/bagel"
 

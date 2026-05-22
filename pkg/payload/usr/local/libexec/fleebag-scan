@@ -21,8 +21,9 @@ RESULTS="$LOG_DIR/results.json"
 RESULTS_TMP="$LOG_DIR/results.json.tmp"
 LOG="$LOG_DIR/fleebag.log"
 
-# Ensure log directory exists
+# Ensure log directory exists and is private — results contain secret findings
 mkdir -p "$LOG_DIR"
+chmod 700 "$LOG_DIR"
 
 timestamp() {
     date -u '+%Y-%m-%dT%H:%M:%SZ'
