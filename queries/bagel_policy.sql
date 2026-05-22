@@ -37,56 +37,66 @@
 --   Fleet fleetd agent (parse_json is a Fleet extension, not core osquery)
 -- =============================================================================
 
-WITH local_users AS (
-    -- Discover all real macOS local users and build their results file paths.
-    -- Excludes /Users/Shared (not a user account; no LaunchAgent runs there)
-    SELECT
-        username,
-        directory || '/Library/Logs/fleebag/results.json' AS results_path
-    FROM users
-    WHERE uid  >= 500              -- Exclude system/service accounts
-      AND directory LIKE '/Users/%' -- macOS user home directories only
-      AND directory != '/Users/Shared'
-),
+-- NOTE: this query avoids CTEs for path generation. Fleet's parse_json virtual
+-- table requires a per-row correlated path constraint; a CTE-derived column
+-- breaks osquery's constraint pushdown and triggers the error:
+--   "The parse_json table requires that you specify a single constraint for path"
+-- The path expression is therefore inlined everywhere it is used.
 
-valid_users AS (
-    -- A user is "valid" when all three policy conditions are satisfied.
-    SELECT lu.username
-    FROM local_users lu
-
-    -- Condition 1 + 2: results file must exist AND be recent.
-    -- INNER JOIN on file means: if the file is missing, zero rows → user excluded.
-    JOIN file f
-        ON f.path = lu.results_path
-    WHERE
-        -- Condition 2: file was modified within the last 7 days (604800 seconds).
-        -- Increase this value to allow a longer scan window, e.g. 1209600 = 14 days.
-        (strftime('%s', 'now') - f.mtime) < 604800
-
-        -- Condition 3: no findings with severity = 'critical'.
-        -- Severity values in bagel JSON are lowercase (critical, high, medium, low).
-        AND NOT EXISTS (
-            SELECT 1
-            FROM parse_json pj
-            WHERE pj.path   = lu.results_path
-              AND pj.key    = 'severity'
-              AND pj.parent LIKE 'findings/%'  -- Scoped to findings array only
-              AND pj.value  = 'critical'        -- Lowercase as per bagel schema
-        )
-)
-
--- Return exactly one row when every local user satisfies all conditions.
--- Comparing counts ensures a device with partial compliance (one user OK,
--- another user failing) still results in a FAIL (0 rows returned).
 SELECT
     'pass'      AS result,
-    vu.username AS username
-FROM valid_users vu
-WHERE
-    -- All local users must be in valid_users.
-    (SELECT COUNT(*) FROM valid_users)  = (SELECT COUNT(*) FROM local_users)
-    -- Guard: at least one local user must exist (avoids a false PASS on
-    -- devices with no uid >= 500 users, which is theoretically impossible
-    -- on a managed Mac but defensive to check).
-    AND (SELECT COUNT(*) FROM local_users) > 0
+    u.username  AS username
+FROM users u
+WHERE u.uid  >= 500
+  AND u.directory LIKE '/Users/%'
+  AND u.directory != '/Users/Shared'
+
+  -- Condition 1 + 2: results file must exist AND be recent.
+  AND EXISTS (
+      SELECT 1
+      FROM file f
+      WHERE f.path = (u.directory || '/Library/Logs/fleebag/results.json')
+        -- Condition 2: file was modified within the last 7 days (604800 seconds).
+        -- Increase this value to allow a longer scan window, e.g. 1209600 = 14 days.
+        AND (strftime('%s', 'now') - f.mtime) < 604800
+  )
+
+  -- Condition 3: no findings with severity = 'critical'.
+  -- Severity values in bagel JSON are lowercase (critical, high, medium, low).
+  AND NOT EXISTS (
+      SELECT 1
+      FROM parse_json pj
+      WHERE pj.path   = (u.directory || '/Library/Logs/fleebag/results.json')
+        AND pj.key    = 'severity'
+        AND pj.parent LIKE 'findings/%'  -- Scoped to findings array only
+        AND pj.value  = 'critical'        -- Lowercase as per bagel schema
+  )
+
+  -- All local users must pass: no other user on this device is non-compliant.
+  -- A device with partial compliance (one user OK, another failing) is a FAIL.
+  AND NOT EXISTS (
+      SELECT 1
+      FROM users u2
+      WHERE u2.uid  >= 500
+        AND u2.directory LIKE '/Users/%'
+        AND u2.directory != '/Users/Shared'
+        AND (
+          -- u2 fails condition 1+2: file missing or stale
+          NOT EXISTS (
+              SELECT 1 FROM file f2
+              WHERE f2.path = (u2.directory || '/Library/Logs/fleebag/results.json')
+                AND (strftime('%s', 'now') - f2.mtime) < 604800
+          )
+          OR
+          -- u2 fails condition 3: has a critical finding
+          EXISTS (
+              SELECT 1 FROM parse_json pj2
+              WHERE pj2.path   = (u2.directory || '/Library/Logs/fleebag/results.json')
+                AND pj2.key    = 'severity'
+                AND pj2.parent LIKE 'findings/%'
+                AND pj2.value  = 'critical'
+          )
+        )
+  )
+
 LIMIT 1;

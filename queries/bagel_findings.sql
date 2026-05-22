@@ -31,57 +31,54 @@
 --   Fleet fleetd agent (parse_json is a Fleet extension, not core osquery)
 -- =============================================================================
 
-WITH local_users AS (
-    -- Real macOS local users with a home directory under /Users/
-    -- Excludes /Users/Shared (not a user account; no LaunchAgent runs there)
-    SELECT
-        username,
-        directory || '/Library/Logs/fleebag/results.json' AS results_path
-    FROM users
-    WHERE uid >= 500
-      AND directory LIKE '/Users/%'
-      AND directory != '/Users/Shared'
-)
 SELECT
-    lu.username,
+    u.username,
     sev.value                                   AS severity,
     rid.value                                   AS rule_id,
     fp.value                                    AS file_path,
     ln.value                                    AS line_number,  -- NULL: not in bagel schema
     datetime(f.mtime, 'unixepoch')              AS last_scan
-FROM local_users lu
+FROM users u
 
 -- Each row from parse_json (aliased sev) is one leaf key-value pair.
 -- Filtering on key = 'severity' and parent LIKE 'findings/%' gives one row
 -- per finding. This join also acts as the "file exists" guard — if
 -- results.json is missing, parse_json returns no rows and the user is skipped.
+--
+-- NOTE: the path expression is inlined here (not via a CTE) so that
+-- osquery can push the per-row constraint directly to parse_json's virtual
+-- table implementation. A CTE-derived column breaks constraint pushdown.
 JOIN parse_json sev
-    ON  sev.path   = lu.results_path
+    ON  sev.path   = (u.directory || '/Library/Logs/fleebag/results.json')
     AND sev.key    = 'severity'
     AND sev.parent LIKE 'findings/%'
 
 -- Correlate the rule id for the same finding array element via parent match.
 JOIN parse_json rid
-    ON  rid.path   = lu.results_path
+    ON  rid.path   = (u.directory || '/Library/Logs/fleebag/results.json')
     AND rid.key    = 'id'
     AND rid.parent = sev.parent
 
 -- File path of the affected config/file (present for most findings).
 LEFT JOIN parse_json fp
-    ON  fp.path   = lu.results_path
+    ON  fp.path   = (u.directory || '/Library/Logs/fleebag/results.json')
     AND fp.key    = 'path'
     AND fp.parent = sev.parent
 
 -- Line number — not in bagel's documented schema; included for future-proofing.
 LEFT JOIN parse_json ln
-    ON  ln.path   = lu.results_path
+    ON  ln.path   = (u.directory || '/Library/Logs/fleebag/results.json')
     AND ln.key    = 'line'
     AND ln.parent = sev.parent
 
 -- File metadata for the results file (modification time = last scan time).
 -- LEFT JOIN so the query still returns rows even if the stat is unavailable.
 LEFT JOIN file f
-    ON f.path = lu.results_path
+    ON f.path = (u.directory || '/Library/Logs/fleebag/results.json')
+
+WHERE u.uid >= 500
+  AND u.directory LIKE '/Users/%'
+  AND u.directory != '/Users/Shared'
 
 ORDER BY
     -- Sort critical findings first, then by descending severity.
@@ -92,4 +89,4 @@ ORDER BY
         WHEN 'low'      THEN 4
         ELSE                 5
     END,
-    lu.username;
+    u.username;

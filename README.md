@@ -379,6 +379,9 @@ The results file path is hardcoded in `pkg/payload/usr/local/libexec/fleebag-sca
 
 The test suite validates the osquery query logic against four fixture scenarios without requiring a Fleet instance.
 
+> **Limitation — parse_json is not tested locally.**
+> `parse_json` is a Fleet extension table that ships with `fleetd`; it is not present in the stock `osqueryi` binary installed via Homebrew. The test runner therefore reimplements the query logic in Python and uses `osqueryi` only to smoke-test the standard `file` table. SQL structural issues — such as CTE-derived columns breaking `parse_json`'s virtual-table constraint pushdown — will not be caught by this suite. Full end-to-end validation requires running the queries against a real Fleet instance with `fleetd` installed.
+
 ### Prerequisites
 
 - `python3` (standard on macOS)
