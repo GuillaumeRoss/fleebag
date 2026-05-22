@@ -78,6 +78,43 @@ The `.pkg` can be distributed via:
 - **Fleet software management** — upload via Fleet's built-in software deployment (Settings → Software)
 - **Manual install** — `sudo installer -pkg build/fleebag-<version>.pkg -target /`
 
+### Signing the PKG (optional)
+
+The PKG produced by `build-pkg.sh` is unsigned. macOS Gatekeeper will block or warn on unsigned PKGs for standard users, and some MDM vendors validate PKG signatures before deployment. Signing is **not automated in this repo** because it requires an Apple Developer ID Installer certificate, which is specific to your organisation's Apple Developer account.
+
+If you have a Developer ID certificate, sign the built PKG with `productsign` before distributing it:
+
+```sh
+# List available signing identities to find your Developer ID Installer certificate
+security find-identity -v -p basic | grep "Developer ID Installer"
+
+# Sign the PKG
+productsign \
+  --sign "Developer ID Installer: Your Name (TEAMID)" \
+  build/fleebag-<version>.pkg \
+  build/fleebag-<version>-signed.pkg
+```
+
+After signing, verify the signature:
+
+```sh
+pkgutil --check-signature build/fleebag-<version>-signed.pkg
+```
+
+**Notarization** (required for distribution outside MDM to standard users on macOS 13+) is a separate step after signing — submit the signed PKG to Apple's notarisation service with `notarytool`, then staple the ticket:
+
+```sh
+xcrun notarytool submit build/fleebag-<version>-signed.pkg \
+  --apple-id "you@example.com" \
+  --team-id "TEAMID" \
+  --password "@keychain:AC_PASSWORD" \
+  --wait
+
+xcrun stapler staple build/fleebag-<version>-signed.pkg
+```
+
+For MDM deployment (Jamf, Mosyle, Kandji, Fleet software management), signing is sufficient — notarisation is not required because MDM bypasses Gatekeeper quarantine.
+
 ---
 
 ## Installation
