@@ -10,16 +10,15 @@
 --   PASS  = query returns ≥ 1 row  (host is compliant)
 --   FAIL  = query returns 0 rows   (host is non-compliant)
 --
--- PASS CONDITIONS (all must be true for every local user on this host)
---   1. results.json exists at ~/Library/Logs/fleebag/results.json
---   2. results.json was modified within the last 7 days (604800 seconds)
---   3. No finding in results.json has severity = 'critical'
+-- PASS CONDITIONS (both must be true)
+--   1. At least one results.json under /Users/ was modified within the last
+--      1 week — confirming the fleebag agent ran recently for some user.
+--   2. No results.json under /Users/ contains a finding with severity = 'critical'.
 --
 -- FAIL CONDITIONS (any of the following triggers a fail)
---   - results.json does not exist for any local user (uid >= 500)
---   - results.json has not been modified in > 7 days  (stale / agent not running)
---   - One or more findings with severity = 'critical' are present
---   - No local users exist with uid >= 500 (edge case; treat as fail)
+--   - No results.json exists for any user
+--   - The most recent results.json is older than 1 week (stale / agent not running)
+--   - Any results.json contains a finding with severity = 'critical'
 --
 -- HOW IT WORKS
 --   parse_json requires a single, plan-time-known path constraint. A per-row
@@ -27,41 +26,28 @@
 --     "The parse_json table requires that you specify a single constraint for path"
 --   This query therefore uses a glob literal for all parse_json and file lookups:
 --     '/Users/*/Library/Logs/fleebag/results.json'
---   The "all users have fresh files" check compares:
---     COUNT of local users (from the users table)
---     COUNT of fresh results files matching the glob (from the file table)
---   If those counts are equal and non-zero, every user has a fresh file.
+--
+--   Condition 1 is satisfied when the file table glob returns at least one
+--   row with mtime within the last week — i.e. the agent ran recently.
+--   Condition 2 is satisfied when parse_json finds zero severity=critical rows.
 --
 -- CUSTOMISATION
 --   To change the stale-scan threshold, replace 604800 with the desired
---   number of seconds (e.g. 86400 = 1 day, 1209600 = 14 days).
+--   number of seconds (e.g. 86400 = 1 day, 1209600 = 2 weeks).
 --
 -- REQUIRES
 --   Fleet fleetd agent (parse_json is a Fleet extension, not core osquery)
 -- =============================================================================
 
-SELECT 'pass' AS result
+SELECT 1
 WHERE
-    -- Guard: at least one local user must exist.
-    (SELECT COUNT(*) FROM users
-     WHERE uid >= 500
-       AND directory LIKE '/Users/%'
-       AND directory != '/Users/Shared') > 0
+    -- Condition 1: at least one results file was written within the last 1 week.
+    -- 604800 = 7 * 24 * 3600 (1 week in seconds).
+    (SELECT COUNT(*) FROM file
+     WHERE path = '/Users/*/Library/Logs/fleebag/results.json'
+       AND (strftime('%s', 'now') - mtime) < 604800) > 0
 
-    -- Conditions 1 + 2: every local user must have a fresh results file.
-    -- The count of fresh files (via glob) must equal the count of local users.
-    -- If any user's file is missing or stale the counts diverge → FAIL.
-    AND (SELECT COUNT(*) FROM users
-         WHERE uid >= 500
-           AND directory LIKE '/Users/%'
-           AND directory != '/Users/Shared')
-      = (SELECT COUNT(*) FROM file
-         WHERE path = '/Users/*/Library/Logs/fleebag/results.json'
-           -- Condition 2: modified within the last 7 days (604800 seconds).
-           -- Increase this value for a longer window, e.g. 1209600 = 14 days.
-           AND (strftime('%s', 'now') - mtime) < 604800)
-
-    -- Condition 3: no findings with severity = 'critical' across any user's file.
+    -- Condition 2: no critical findings in any user's results file.
     AND 0 = (SELECT COUNT(*) FROM parse_json
              WHERE path   = '/Users/*/Library/Logs/fleebag/results.json'
                AND key    = 'severity'
