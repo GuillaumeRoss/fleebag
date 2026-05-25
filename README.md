@@ -271,7 +271,7 @@ SELECT
     datetime(f.mtime, 'unixepoch')                        AS last_scan
 FROM parse_json pj
 LEFT JOIN file f ON f.path = pj.path
-WHERE pj.path   = '/Users/*/Library/Logs/fleebag/results.json'
+WHERE pj.path LIKE '/Users/%/Library/Logs/fleebag/results.json'
   AND pj.parent LIKE 'findings/%'
 GROUP BY pj.path, pj.parent
 ORDER BY

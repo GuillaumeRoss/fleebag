@@ -14,12 +14,12 @@
 --   Fleet aggregates results across all selected hosts in the UI.
 --
 -- HOW IT WORKS
---   1. Calls parse_json ONCE with a glob path covering all users.
+--   1. Calls parse_json ONCE with a LIKE path covering all users.
 --      parse_json requires a single, plan-time-known path constraint; a
 --      per-row correlated expression (e.g. from a JOIN with users) is
 --      resolved too late and triggers:
 --        "The parse_json table requires that you specify a single constraint for path"
---      A glob literal satisfies this requirement and covers all users.
+--      A LIKE literal satisfies this requirement and covers all users.
 --   2. Groups rows by (path, parent) — one group = one finding array element
 --      (e.g. parent = 'findings/0') — and pivots key→value pairs into columns.
 --   3. Extracts the username from the resolved path string.
@@ -49,7 +49,7 @@ FROM parse_json pj
 LEFT JOIN file f ON f.path = pj.path
 
 -- Single glob constraint: parse_json expands this to all matching files.
-WHERE pj.path   = '/Users/*/Library/Logs/fleebag/results.json'
+WHERE pj.path LIKE '/Users/%/Library/Logs/fleebag/results.json'
   AND pj.parent LIKE 'findings/%'
 
 -- One group = one finding array element across all its key-value pairs.
