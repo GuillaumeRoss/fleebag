@@ -6,6 +6,11 @@ Deploy [bagel](https://github.com/boostsecurityio/bagel) to developer Macs via m
 
 ---
 
+> **Proof of concept — not for production use.**
+> This project demonstrates *that* you can scan developer laptops for exposed secrets and surface compliance posture in Fleet. It is not hardened for production deployment: the `bagel` binary ships with only an ad-hoc linker signature, the PKG is unsigned by default, and the PPPC profile cannot be populated with a stable `CodeRequirement` until the binary is re-signed with your own Developer ID certificate. Treat this as a reference implementation. Adapt the signing, packaging, and profile steps to your organisation's infrastructure before deploying at scale.
+
+---
+
 ## Overview
 
 **fleebag** packages the [bagel](https://github.com/boostsecurityio/bagel) open-source secret scanner into a macOS installer (`.pkg`) that runs automatically on developer laptops via a LaunchAgent. Scan results are written as JSON and queried by Fleet's osquery agent, letting you see detected secrets across your entire fleet and enforce a compliance policy — all without touching each machine manually.
@@ -78,7 +83,48 @@ The `.pkg` can be distributed via:
 - **Fleet software management** — upload via Fleet's built-in software deployment (Settings → Software)
 - **Manual install** — `sudo installer -pkg build/fleebag-<version>.pkg -target /`
 
-### Signing the PKG (optional)
+### Signing the bagel binary
+
+The `bagel` binary downloaded from the upstream GitHub release carries only an ad-hoc linker signature (`flags=adhoc`, `Identifier=a.out`, `TeamIdentifier=not set`). This means:
+
+- The binary has no stable code-signing identity that macOS can verify.
+- The PPPC profile's `CodeRequirement` can only be expressed as a `cdhash` tied to that exact build — it will break every time bagel is updated.
+- Some MDMs and endpoint security tools treat ad-hoc-signed binaries as unverified third-party code.
+
+**The recommended path** is to re-sign the bagel binary with your own **Developer ID Application** certificate before packaging it. This gives it a stable, certificate-anchored identity that survives version updates (as long as you use the same team certificate):
+
+```sh
+# List Developer ID Application identities in your keychain
+security find-identity -v -p codesigning | grep "Developer ID Application"
+
+# Re-sign the binary (replace TEAMID and org name with your own)
+codesign --force --options runtime \
+  --sign "Developer ID Application: Your Name (TEAMID)" \
+  pkg/payload/usr/local/bin/bagel
+
+# Verify
+codesign -dv --verbose=4 pkg/payload/usr/local/bin/bagel
+```
+
+After re-signing, derive the `CodeRequirement` that you will paste into the PPPC profile:
+
+```sh
+codesign -dr - pkg/payload/usr/local/bin/bagel 2>&1 | grep 'designated =>'
+```
+
+Example output for a properly signed binary:
+```
+designated => identifier "bagel" and anchor apple generic and
+  certificate 1[field.1.2.840.113635.100.6.2.6] /* exists */ and
+  certificate leaf[field.1.2.840.113635.100.6.1.13] /* exists */ and
+  certificate leaf[subject.OU] = "XXXXXXXXXX"
+```
+
+This string is stable across future bagel releases as long as you re-sign each new version with the same Developer ID cert. Paste it into `profiles/fleebag-full-disk-access.mobileconfig` as the `CodeRequirement` value. See [Preparing the profile](#preparing-the-profile) for details.
+
+> **Without re-signing:** if you skip this step, the only valid `CodeRequirement` is a `cdhash` (`cdhash H"<hash>"`), which must be updated in the profile every time you ship a new version of bagel. For a proof-of-concept this is acceptable; for production it is unworkable.
+
+### Signing the PKG
 
 The PKG produced by `build-pkg.sh` is unsigned. macOS Gatekeeper will block or warn on unsigned PKGs for standard users, and some MDM vendors validate PKG signatures before deployment. Signing is **not automated in this repo** because it requires an Apple Developer ID Installer certificate, which is specific to your organisation's Apple Developer account.
 
@@ -170,17 +216,34 @@ The profile requires two values that are specific to your environment:
 uuidgen   # run twice; paste results into PAYLOAD-UUID-1 and PAYLOAD-UUID-2
 ```
 
-**2. CodeRequirement** — the code signing requirement for the bagel binary. Obtain this on a Mac where bagel is already installed:
-```sh
-codesign -dr - /usr/local/bin/bagel 2>&1 | grep 'designated =>'
-```
-Example output:
-```
-designated => identifier "bagel" and anchor apple generic and certificate leaf[subject.OU] = "XXXXXXXXXX"
-```
-Paste everything after `designated => ` as the `CodeRequirement` string in the profile.
+**2. CodeRequirement** — the code signing requirement for the bagel binary.
 
-> **Note:** The CodeRequirement is tied to the specific version of bagel you have installed. If you update bagel to a new release signed with a different certificate or team ID, re-derive the CodeRequirement and redeploy the profile.
+The value you use here depends on how bagel is signed:
+
+- **If you re-signed bagel with your Developer ID Application cert** (recommended — see [Signing the bagel binary](#signing-the-bagel-binary)): run the following on a Mac where the re-signed bagel is installed and paste everything after `designated => ` into the profile. This value is stable across bagel version updates.
+
+  ```sh
+  codesign -dr - /usr/local/bin/bagel 2>&1 | grep 'designated =>'
+  ```
+
+  Example output:
+  ```
+  designated => identifier "bagel" and anchor apple generic and
+    certificate 1[field.1.2.840.113635.100.6.2.6] /* exists */ and
+    certificate leaf[subject.OU] = "XXXXXXXXXX"
+  ```
+
+- **If you are using the upstream ad-hoc-signed binary as-is** (proof-of-concept only): the only valid `CodeRequirement` is the binary's `cdhash`, which changes with every bagel release. Obtain it with:
+
+  ```sh
+  codesign -dr - /usr/local/bin/bagel 2>&1
+  # Look for: # designated => cdhash H"<hash>"
+  # Use: cdhash H"<hash>"
+  ```
+
+  You must update this value in the profile — and redeploy via MDM — every time you install a new version of bagel.
+
+> **Recommendation:** Re-sign the binary before packaging to avoid the per-version redeploy cycle. See [Signing the bagel binary](#signing-the-bagel-binary).
 
 ### Deploying the profile
 
