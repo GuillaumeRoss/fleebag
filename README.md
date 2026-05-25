@@ -262,49 +262,27 @@ Two SQL files in `queries/` are ready to paste into Fleet.
 **How to add in Fleet:** Settings → Queries → New query → paste the SQL below.
 
 ```sql
-WITH local_users AS (
-    SELECT
-        username,
-        directory || '/Library/Logs/fleebag/results.json' AS results_path
-    FROM users
-    WHERE uid >= 500
-      AND directory LIKE '/Users/%'
-)
 SELECT
-    lu.username,
-    sev.value                                   AS severity,
-    rid.value                                   AS rule_id,
-    fp.value                                    AS file_path,
-    ln.value                                    AS line_number,
-    datetime(f.mtime, 'unixepoch')              AS last_scan
-FROM local_users lu
-JOIN parse_json sev
-    ON  sev.path   = lu.results_path
-    AND sev.key    = 'severity'
-    AND sev.parent LIKE 'findings/%'
-JOIN parse_json rid
-    ON  rid.path   = lu.results_path
-    AND rid.key    = 'id'
-    AND rid.parent = sev.parent
-LEFT JOIN parse_json fp
-    ON  fp.path   = lu.results_path
-    AND fp.key    = 'path'
-    AND fp.parent = sev.parent
-LEFT JOIN parse_json ln
-    ON  ln.path   = lu.results_path
-    AND ln.key    = 'line'
-    AND ln.parent = sev.parent
-LEFT JOIN file f
-    ON f.path = lu.results_path
+    REPLACE(REPLACE(pj.path, '/Library/Logs/fleebag/results.json', ''), '/Users/', '') AS username,
+    MAX(CASE WHEN pj.key = 'severity' THEN pj.value END) AS severity,
+    MAX(CASE WHEN pj.key = 'id'       THEN pj.value END) AS rule_id,
+    MAX(CASE WHEN pj.key = 'path'     THEN pj.value END) AS file_path,
+    MAX(CASE WHEN pj.key = 'line'     THEN pj.value END) AS line_number,
+    datetime(f.mtime, 'unixepoch')                        AS last_scan
+FROM parse_json pj
+LEFT JOIN file f ON f.path = pj.path
+WHERE pj.path   = '/Users/*/Library/Logs/fleebag/results.json'
+  AND pj.parent LIKE 'findings/%'
+GROUP BY pj.path, pj.parent
 ORDER BY
-    CASE sev.value
+    CASE MAX(CASE WHEN pj.key = 'severity' THEN pj.value END)
         WHEN 'critical' THEN 1
         WHEN 'high'     THEN 2
         WHEN 'medium'   THEN 3
         WHEN 'low'      THEN 4
         ELSE                 5
     END,
-    lu.username;
+    pj.path;
 ```
 
 **Output columns:**
