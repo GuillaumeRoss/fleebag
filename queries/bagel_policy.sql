@@ -43,13 +43,17 @@ SELECT 1
 WHERE
     -- Condition 1: at least one results file was written within the last 1 week.
     -- 604800 = 7 * 24 * 3600 (1 week in seconds).
-    (SELECT COUNT(*) FROM file
-     WHERE path = '/Users/*/Library/Logs/fleebag/results.json'
-       AND (strftime('%s', 'now') - mtime) < 604800) > 0
+    EXISTS (
+        SELECT 1 FROM file
+        WHERE path = '/Users/*/Library/Logs/fleebag/results.json'
+          AND (strftime('%s', 'now') - mtime) < 604800
+    )
 
     -- Condition 2: no critical findings in any user's results file.
-    AND 0 = (SELECT COUNT(*) FROM parse_json
-             WHERE path   = '/Users/*/Library/Logs/fleebag/results.json'
-               AND key    = 'severity'
-               AND parent LIKE 'findings/%'
-               AND value  = 'critical');
+    AND NOT EXISTS (
+        SELECT 1 FROM parse_json
+        WHERE path   = '/Users/*/Library/Logs/fleebag/results.json'
+          AND key    = 'severity'
+          AND parent LIKE 'findings/%'
+          AND value  = 'critical'
+    );
